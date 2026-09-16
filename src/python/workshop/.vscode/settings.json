@@ -12,5 +12,11 @@
             "label": "Agent Service",
             "onAutoForward": "silent"
         }
-    }
+    },
+    "python.defaultInterpreterPath": "/usr/local/bin/python",
+    "python.analysis.extraPaths": [
+        "${workspaceFolder}",
+        "${workspaceFolder}/../shared"
+    ],
+    "python.envFile": "${workspaceFolder}/.env"
 }

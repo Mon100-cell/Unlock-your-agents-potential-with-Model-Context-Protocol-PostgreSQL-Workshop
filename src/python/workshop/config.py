@@ -11,7 +11,7 @@ class Config:
     """Configuration class for managing application settings."""
 
     # Agent configuration
-    AGENT_NAME = "Zava DIY Sales Analysis Agent"
+    AGENT_NAME = "FabCon Europe 2026 Sample Sales Agent"
 
     # Azure configuration - loaded from environment variables
     GPT_MODEL_DEPLOYMENT_NAME: str = os.environ["GPT_MODEL_DEPLOYMENT_NAME"]

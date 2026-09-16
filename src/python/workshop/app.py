@@ -9,6 +9,8 @@ REST API available at: http://127.0.0.1:8006
 """
 
 import logging
+import os
+import socket
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, AsyncGenerator, Dict
@@ -20,7 +22,7 @@ from azure.monitor.opentelemetry import configure_azure_monitor
 from chat_manager import ChatManager, ChatRequest
 from config import Config
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from mcp_client import MCPClient
 from opentelemetry import trace
 from terminal_colors import TerminalColors as tc
@@ -36,8 +38,8 @@ INSTRUCTIONS_FILE = "instructions/mcp_server_tools_with_code_interpreter.txt"
 
 RESPONSE_TIMEOUT_SECONDS = 60
 
-trace_scenario = "Zava Agent Initialization"
-tracer = trace.get_tracer("zava_agent.tracing")
+trace_scenario = "FabCon Europe 2026 Sample Sales Agent Initialization"
+tracer = trace.get_tracer("fabcon_sample_agent.tracing")
 mcp_client = MCPClient.create_default()
 
 
@@ -141,6 +143,22 @@ class AgentManager:
         return all([self.agents_client, self.agent, self.thread])
 
 
+def find_available_port(start_port: int = 8006, max_tries: int = 20) -> int:
+    """Return the first free local port starting from start_port."""
+    for port in range(start_port, start_port + max_tries):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                sock.bind(("127.0.0.1", port))
+                return port
+            except OSError:
+                continue
+
+    raise RuntimeError(
+        f"No free port available in range {start_port}-{start_port + max_tries - 1}"
+    )
+
+
 # Global service instance
 agent_manager = AgentManager()
 agent_service = ChatManager(agent_manager)
@@ -167,6 +185,23 @@ async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
 
 # FastAPI app with lifespan
 app = FastAPI(title="Azure AI Agent Service", lifespan=lifespan)
+
+
+@app.get("/")
+async def root() -> Dict[str, Any]:
+    """Simple root endpoint for smoke-testing the service."""
+    return {
+        "status": "ok",
+        "service": "Azure AI Agent Service",
+        "health": "/health",
+        "docs": "/docs",
+    }
+
+
+@app.get("/favicon.ico")
+async def favicon() -> FileResponse:
+    """Serve a favicon for the browser tab."""
+    return FileResponse(path="favicon.svg", media_type="image/svg+xml")
 
 
 @app.get("/health")
@@ -246,5 +281,11 @@ async def serve_file(filename: str) -> FileResponse:
 if __name__ == "__main__":
     import uvicorn
 
-    print("Starting agent service...")
-    uvicorn.run(app, host="127.0.0.1", port=8006)
+    requested_port = int(os.getenv("PORT", "8006"))
+    port = find_available_port(requested_port)
+
+    print(f"Starting agent service on http://127.0.0.1:{port}...")
+    print(f"Health check: http://127.0.0.1:{port}/health")
+    print(f"API docs: http://127.0.0.1:{port}/docs")
+    uvicorn.run(app, host="127.0.0.1", port=port)
+

@@ -10,6 +10,8 @@ Web interface available at: http://127.0.0.1:8005
 
 import json
 import logging
+import os
+import socket
 import sys
 from pathlib import Path
 from typing import AsyncGenerator, Dict, List
@@ -27,7 +29,23 @@ from utilities import Utilities
 logging.basicConfig(level=logging.ERROR)
 
 # Agent service configuration
-AGENT_SERVICE_URL = "http://127.0.0.1:8006"
+AGENT_SERVICE_URL = os.getenv("AGENT_SERVICE_URL", "http://127.0.0.1:8006")
+
+
+def find_available_port(start_port: int = 8005, max_tries: int = 20) -> int:
+    """Return the first free local port starting from start_port."""
+    for port in range(start_port, start_port + max_tries):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                sock.bind(("127.0.0.1", port))
+                return port
+            except OSError:
+                continue
+
+    raise RuntimeError(
+        f"No free port available in range {start_port}-{start_port + max_tries - 1}"
+    )
 
 
 class WebApp:
@@ -288,6 +306,10 @@ web_app = WebApp(app)
 if __name__ == "__main__":
     import uvicorn
 
+    requested_port = int(os.getenv("PORT", "8005"))
+    port = find_available_port(requested_port)
+
     print("Starting web interface...")
     print(f"Agent service URL: {AGENT_SERVICE_URL}")
-    uvicorn.run(app, host="127.0.0.1", port=8005)
+    print(f"Web UI: http://127.0.0.1:{port}")
+    uvicorn.run(app, host="127.0.0.1", port=port)
