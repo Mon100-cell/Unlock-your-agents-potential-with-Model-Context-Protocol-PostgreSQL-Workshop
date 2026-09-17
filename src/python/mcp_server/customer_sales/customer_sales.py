@@ -5,6 +5,7 @@ Provides comprehensive customer sales database access with individual table sche
 
 import argparse
 import asyncio
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -44,7 +45,13 @@ async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
 
 
 # Create MCP server with lifespan support
-mcp = FastMCP("mcp-zava-sales", lifespan=app_lifespan, stateless_http=True)
+mcp = FastMCP(
+    "mcp-zava-sales",
+    lifespan=app_lifespan,
+    stateless_http=True,
+    host="127.0.0.1",
+    port=int(os.getenv("MCP_PORT", "8001")),
+)
 
 
 def get_header(ctx: Context, header_name: str) -> Optional[str]:

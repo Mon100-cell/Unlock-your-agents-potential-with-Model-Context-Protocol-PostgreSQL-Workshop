@@ -18,6 +18,7 @@ import asyncio
 import json
 import logging
 import os
+import socket
 from typing import Optional
 
 import asyncpg
@@ -30,9 +31,27 @@ load_dotenv(override=False)
 logging.basicConfig(level=logging.ERROR)
 logger = logging.getLogger(__name__)
 
+def resolve_postgres_url() -> str:
+    """Prefer the local host when running outside Docker, but fall back to the compose service name when available."""
+    configured = os.getenv("POSTGRES_URL")
+    if configured:
+        return configured
+
+    docker_url = "postgresql://store_manager:StoreManager123!@db:5432/zava"
+    local_url = "postgresql://store_manager:StoreManager123!@localhost:5432/zava"
+
+    for candidate, host in ((docker_url, "db"), (local_url, "localhost")):
+        try:
+            with socket.create_connection((host, 5432), timeout=1):
+                return candidate
+        except OSError:
+            continue
+
+    return local_url
+
+
 # PostgreSQL connection configuration
-POSTGRES_URL = os.getenv(
-    "POSTGRES_URL", "postgresql://store_manager:StoreManager123!@db:5432/zava")
+POSTGRES_URL = resolve_postgres_url()
 
 SCHEMA_NAME = "retail"
 MANAGER_ID = ""
