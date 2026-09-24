@@ -172,6 +172,11 @@ EOSQL
     
     if [ -n "$BACKUP_FILE" ] && [ "$RESTORE_SUCCESS" = true ]; then
         echo "✅ Database restoration completed!"
+
+        echo "🧾 Seeding demo orders..."
+        psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "zava" \
+            -f /docker-entrypoint-initdb.d/backups/database/seed_demo_orders.sql
+        echo "✅ Demo orders seeded"
         
         # Verify that data was actually restored
         echo "🔍 Verifying restoration..."
