@@ -17,7 +17,7 @@ from pydantic import Field
 from sales_analysis_postgres import PostgreSQLSchemaProvider
 
 RLS_USER_ID = None
-
+#RLS_USER_ID="f47ac10b-58cc-4372-a567-0e02b2c3d479"
 
 @dataclass
 class AppContext:
