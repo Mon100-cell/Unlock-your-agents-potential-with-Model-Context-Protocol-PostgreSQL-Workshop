@@ -60,6 +60,7 @@ class AgentManager:
                     "get_multiple_table_schemas",
                     "execute_sales_query",
                     "get_current_utc_date",
+                    "get_customer_orders",
                 ],
             )
             # PostgreSQL Row Level Security (RLS) User ID header
@@ -144,18 +145,21 @@ class AgentManager:
 
 
 def find_available_port(start_port: int = 8006, max_tries: int = 20) -> int:
-    """Return the first free local port starting from start_port."""
-    for port in range(start_port, start_port + max_tries):
+    """Return the requested local port if free, otherwise find the next free port."""
+    for offset in range(max_tries):
+        port = start_port + offset
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             try:
                 sock.bind(("127.0.0.1", port))
+                if offset > 0:
+                    print(f"Port {start_port} is already in use; using next free port {port} instead.")
                 return port
             except OSError:
                 continue
 
     raise RuntimeError(
-        f"No free port available in range {start_port}-{start_port + max_tries - 1}"
+        f"No free port found starting at {start_port} within {max_tries} attempts."
     )
 
 

@@ -175,6 +175,71 @@ async def execute_sales_query(
 
 
 @mcp.tool()
+async def get_customer_orders(
+    ctx: Context,
+    customer_id: Annotated[
+        Optional[int],
+        Field(description="Optional customer ID to filter results to a specific customer."),
+    ] = None,
+    store_id: Annotated[
+        Optional[int],
+        Field(description="Optional store ID to filter results to a specific store."),
+    ] = None,
+    limit: Annotated[
+        int,
+        Field(description="Maximum number of rows to return. Must be between 1 and 100.", ge=1, le=100),
+    ] = 20,
+) -> str:
+    """Return recent customer orders, including customer and store details, while respecting the active RLS user scope.
+
+    Args:
+        customer_id: Optional customer ID to filter to a specific customer.
+        store_id: Optional store ID to filter to a specific store.
+        limit: Maximum number of rows to return.
+
+    Returns:
+        Order rows and associated customer/store information.
+    """
+    rls_user_id = get_rls_user_id(ctx)
+    provider = get_db_provider()
+
+    filters: list[str] = []
+    if customer_id is not None:
+        filters.append(f"o.customer_id = {customer_id}")
+    if store_id is not None:
+        filters.append(f"o.store_id = {store_id}")
+
+    where_clause = ""
+    if filters:
+        where_clause = " WHERE " + " AND ".join(filters)
+
+    sql = f"""
+        SELECT
+            o.order_id,
+            o.customer_id,
+            c.first_name,
+            c.last_name,
+            o.store_id,
+            s.store_name,
+            o.order_date,
+            o.total_amount,
+            o.status
+        FROM retail.orders o
+        JOIN retail.customers c ON c.customer_id = o.customer_id
+        JOIN retail.stores s ON s.store_id = o.store_id
+        {where_clause}
+        ORDER BY o.order_date DESC
+        LIMIT {limit}
+    """
+
+    try:
+        result = await provider.execute_query(sql, rls_user_id=rls_user_id)
+        return f"Customer Orders:\n{result}"
+    except Exception as e:
+        return f"Error retrieving customer orders: {e!s}"
+
+
+@mcp.tool()
 async def get_current_utc_date() -> str:
     """Get the current UTC date and time in ISO format. Useful for date-based queries, filtering recent data, or understanding the current context for time-sensitive analysis.
 

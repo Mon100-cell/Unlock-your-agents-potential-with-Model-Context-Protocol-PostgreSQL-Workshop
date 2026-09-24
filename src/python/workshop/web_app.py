@@ -33,18 +33,21 @@ AGENT_SERVICE_URL = os.getenv("AGENT_SERVICE_URL", "http://127.0.0.1:8006")
 
 
 def find_available_port(start_port: int = 8005, max_tries: int = 20) -> int:
-    """Return the first free local port starting from start_port."""
-    for port in range(start_port, start_port + max_tries):
+    """Return the requested local port if free, otherwise find the next free port."""
+    for offset in range(max_tries):
+        port = start_port + offset
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             try:
                 sock.bind(("127.0.0.1", port))
+                if offset > 0:
+                    print(f"Port {start_port} is already in use; using next free port {port} instead.")
                 return port
             except OSError:
                 continue
 
     raise RuntimeError(
-        f"No free port available in range {start_port}-{start_port + max_tries - 1}"
+        f"No free port found starting at {start_port} within {max_tries} attempts."
     )
 
 
@@ -62,8 +65,9 @@ class WebApp:
     
     def _setup_static_files(self) -> None:
         """Setup static file serving."""
-        # Use absolute path since parent navigation isn't working as expected
-        static_dir = Path("/workspace/src/shared/static")
+        static_dir = Path(__file__).resolve().parents[2] / "shared" / "static"
+        if not static_dir.exists():
+            raise FileNotFoundError(f"Static assets folder not found: {static_dir}")
         self.app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
     
     def _setup_routes(self) -> None:
@@ -78,13 +82,15 @@ class WebApp:
     
     async def get_chat_page(self) -> HTMLResponse:
         """Serve the chat HTML page."""
-        html_file = Path("/workspace/src/shared/static/index.html")
-        with html_file.open("r") as f:
+        html_file = Path(__file__).resolve().parents[2] / "shared" / "static" / "index.html"
+        with html_file.open("r", encoding="utf-8") as f:
             return HTMLResponse(content=f.read())
     
     async def get_favicon(self) -> FileResponse:
         """Serve the favicon.ico file."""
-        favicon_path = Path("/workspace/src/shared/static/favicon.ico")
+        favicon_path = Path(__file__).resolve().parents[2] / "shared" / "static" / "favicon.ico"
+        if not favicon_path.exists():
+            raise HTTPException(status_code=404, detail="Favicon not found")
         return FileResponse(favicon_path, media_type="image/x-icon")
     
     async def upload_file(self, file: UploadFile, message: str = Form(None)) -> Dict:
